@@ -4,7 +4,8 @@
 #include <glm/glm/glm.hpp>
 #include <glm/glm/gtc/matrix_transform.hpp>
 #include <glm/glm/gtc/type_ptr.hpp>
-
+#include <ctime> // Necesario para time()
+#include <cstdlib> // Necesario para rand() y srand()
 #include <iostream>
 #include <vector>
 
@@ -50,7 +51,10 @@ float cubeVertices[] = { -0.5f,-0.5f,-0.5f,0.0f,0.0f,-1.0f,0.0f,0.0f, 0.5f,-0.5f
 
 int main()
 {
-    // Setup Basico (Commit 1)
+    
+
+    srand(static_cast<unsigned int>(time(NULL)));
+
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);

@@ -1,5 +1,3 @@
-
-
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <learnopengl/shader.h> 
@@ -11,7 +9,11 @@
 #include <iostream>
 #include <vector>
 
-// --- PROTOTIPOS DE FUNCIONES ---
+
+#define STB_IMAGE_IMPLEMENTATION
+#include <learnopengl/stb_image.h> 
+
+// --- PROTOTIPOS ---
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
@@ -26,16 +28,11 @@ const float BLOCK_SIZE = 3.0f;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
-// --- ESTADOS DEL JUEGO (NUEVO) ---
-enum GameState {
-    MENU,
-    PLAYING,
-    GAME_OVER,
-    WIN
-};
-GameState currentState = MENU; // Inicia en el menu
+// --- ESTADOS ---
+enum GameState { MENU, PLAYING, GAME_OVER, WIN };
+GameState currentState = MENU;
 
-// --- DATOS DEL MAPA (1=Pared, 0=Camino) ---
+// --- DATOS DEL MAPA ---
 const int MAZE_WIDTH = 22;
 const int MAZE_HEIGHT = 22;
 int mazeData[MAZE_HEIGHT][MAZE_WIDTH] = {
@@ -63,12 +60,10 @@ int mazeData[MAZE_HEIGHT][MAZE_WIDTH] = {
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 };
 
-// Vertices simples (Cubo)
 float cubeVertices[] = { -0.5f,-0.5f,-0.5f,0.0f,0.0f,-1.0f,0.0f,0.0f, 0.5f,-0.5f,-0.5f,0.0f,0.0f,-1.0f,1.0f,0.0f, 0.5f,0.5f,-0.5f,0.0f,0.0f,-1.0f,1.0f,1.0f, 0.5f,0.5f,-0.5f,0.0f,0.0f,-1.0f,1.0f,1.0f, -0.5f,0.5f,-0.5f,0.0f,0.0f,-1.0f,0.0f,1.0f, -0.5f,-0.5f,-0.5f,0.0f,0.0f,-1.0f,0.0f,0.0f, -0.5f,-0.5f,0.5f,0.0f,0.0f,1.0f,0.0f,0.0f, 0.5f,-0.5f,0.5f,0.0f,0.0f,1.0f,1.0f,0.0f, 0.5f,0.5f,0.5f,0.0f,0.0f,1.0f,1.0f,1.0f, 0.5f,0.5f,0.5f,0.0f,0.0f,1.0f,1.0f,1.0f, -0.5f,0.5f,0.5f,0.0f,0.0f,1.0f,0.0f,1.0f, -0.5f,-0.5f,0.5f,0.0f,0.0f,1.0f,0.0f,0.0f, -0.5f,0.5f,0.5f,-1.0f,0.0f,0.0f,1.0f,0.0f, -0.5f,0.5f,-0.5f,-1.0f,0.0f,0.0f,1.0f,1.0f, -0.5f,-0.5f,-0.5f,-1.0f,0.0f,0.0f,0.0f,1.0f, -0.5f,-0.5f,-0.5f,-1.0f,0.0f,0.0f,0.0f,1.0f, -0.5f,-0.5f,0.5f,-1.0f,0.0f,0.0f,0.0f,0.0f, -0.5f,0.5f,0.5f,-1.0f,0.0f,0.0f,1.0f,0.0f, 0.5f,0.5f,0.5f,1.0f,0.0f,0.0f,1.0f,0.0f, 0.5f,0.5f,-0.5f,1.0f,0.0f,0.0f,1.0f,1.0f, 0.5f,-0.5f,-0.5f,1.0f,0.0f,0.0f,0.0f,1.0f, 0.5f,-0.5f,-0.5f,1.0f,0.0f,0.0f,0.0f,1.0f, 0.5f,-0.5f,0.5f,1.0f,0.0f,0.0f,0.0f,0.0f, 0.5f,0.5f,0.5f,1.0f,0.0f,0.0f,1.0f,0.0f, -0.5f,-0.5f,-0.5f,0.0f,-1.0f,0.0f,0.0f,1.0f, 0.5f,-0.5f,-0.5f,0.0f,-1.0f,0.0f,1.0f,1.0f, 0.5f,-0.5f,0.5f,0.0f,-1.0f,0.0f,1.0f,0.0f, 0.5f,-0.5f,0.5f,0.0f,-1.0f,0.0f,1.0f,0.0f, -0.5f,-0.5f,0.5f,0.0f,-1.0f,0.0f,0.0f,0.0f, -0.5f,-0.5f,-0.5f,0.0f,-1.0f,0.0f,0.0f,1.0f, -0.5f,0.5f,-0.5f,0.0f,1.0f,0.0f,0.0f,1.0f, 0.5f,0.5f,-0.5f,0.0f,1.0f,0.0f,1.0f,1.0f, 0.5f,0.5f,0.5f,0.0f,1.0f,0.0f,1.0f,0.0f, 0.5f,0.5f,0.5f,0.0f,1.0f,0.0f,1.0f,0.0f, -0.5f,0.5f,0.5f,0.0f,1.0f,0.0f,0.0f,0.0f, -0.5f,0.5f,-0.5f,0.0f,1.0f,0.0f,0.0f,1.0f };
 
 int main()
 {
-    // Semilla para generacion procedural (Niveles aleatorios)
     srand(static_cast<unsigned int>(time(NULL)));
 
     glfwInit();
@@ -80,14 +75,10 @@ int main()
     if (window == NULL) { glfwTerminate(); return -1; }
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-
-    // --- NUEVO: Registrar callbacks del Mouse (Commit 3) ---
-    // Esto es vital para que la Persona 2 pueda programar la camara despues
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) { return -1; }
-
     glEnable(GL_DEPTH_TEST);
 
     Shader ourShader("shaders/shader_B2T3.vs", "shaders/shader_B2T3.fs");
@@ -114,9 +105,7 @@ int main()
         lastFrame = currentFrame;
 
         processInput(window);
-
-        // Color de fondo oscuro (Atmosfera basica)
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClearColor(0.01f, 0.01f, 0.01f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         ourShader.use();
@@ -133,7 +122,6 @@ int main()
                 }
             }
         }
-
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
@@ -145,26 +133,13 @@ void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
-    // --- LÓGICA DE MENÚ (NUEVO) ---
-    // Si estamos en MENU y presionan ENTER, pasamos a PLAYING
     if (currentState == MENU) {
         if (glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS) {
             currentState = PLAYING;
             std::cout << "JUEGO INICIADO" << std::endl;
         }
-        // return; // Si descomentas esto, el movimiento se bloqueará en el menu (Recomendado cuando haya camara)
     }
 }
-
-void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-    glViewport(0, 0, width, height);
-}
-
-// --- CALLBACKS VACIOS (Por ahora) ---
-void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
-    // TODO: Persona 2 implementara la camara aqui
-}
-
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
-    // TODO: Persona 2 implementara el zoom aqui
-}
+void framebuffer_size_callback(GLFWwindow* window, int width, int height) { glViewport(0, 0, width, height); }
+void mouse_callback(GLFWwindow* window, double xpos, double ypos) {}
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {}

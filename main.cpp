@@ -21,92 +21,63 @@
 
 #include <iostream>
 #include <vector>
-#include <queue>
-#include <algorithm>
 #include <ctime> 
 
-// --- ESTRUCTURAS IA (PERSONA 4) ---
-struct Node {
-    int x, z;
-    bool operator==(const Node& other) const { return x == other.x && z == other.z; }
-}; [cite:10]
-
-// --- LÓGICA PERSONA 4 (ADRIAN CORREA) ---
+// --- LÓGICA PERSONA 4 (ADRIAN CORREA): MUERTE Y SCREAMER ---
 enum GameState { MENU, PLAYING, GAME_OVER, WIN, START_SCREEN };
-GameState currentState = START_SCREEN; [cite:10]
+GameState currentState = START_SCREEN;
 
-// IA Slender y Navegación
-glm::vec3 slenderPos(18.0f * 3.0f, 0.0f, 18.0f * 3.0f); [cite:12]
-float currentSlenderSpeed = 2.5f; [cite:10]
-std::vector<Node> currentPath; [cite:10]
-float pathUpdateTimer = 0.0f; [cite:10]
-bool slenderIsVisible = true; [cite:10]
-std::vector<Model*> slenderAnimation; [cite:10]
+bool isDyingAnimation = false;
+float dyingTimer = 0.0f;
+bool slenderIsVisible = true;
+glm::vec3 slenderPos(18.0f * 3.0f, 0.0f, 18.0f * 3.0f);
 
-// Mapa (Copia del mazeData para el BFS)
-const int MAZE_WIDTH = 22; [cite:10]
-const int MAZE_HEIGHT = 22; [cite:10]
-extern int mazeData[22][22]; // Asumimos que la arquitectura base ya tiene el mapa definido [cite: 10]
+void stopMusic() { PlaySound(NULL, NULL, 0); }
 
-// --- FUNCIÓN DE BÚSQUEDA DE CAMINOS BFS ---
-std::vector<Node> findPathBFS(Node start, Node target) {
-    std::vector<Node> path;
-    if (start.x == target.x && start.z == target.z) return path;
-    Node parents[22][22];
-    for (int i = 0; i < 22; i++) for (int j = 0; j < 22; j++) parents[i][j] = { -1,-1 };
-
-    std::queue<Node> q; q.push(start); parents[start.z][start.x] = start;
-    bool found = false; int dX[] = { 0,0,-1,1 }; int dZ[] = { -1,1,0,0 };
-
-    while (!q.empty()) {
-        Node curr = q.front(); q.pop();
-        if (curr.x == target.x && curr.z == target.z) { found = true; break; }
-        for (int i = 0; i < 4; i++) {
-            int nx = curr.x + dX[i]; int nz = curr.z + dZ[i];
-            if (nx >= 0 && nx < 22 && nz >= 0 && nz < 22) {
-                // El Slender no atraviesa paredes (1) ni la fuente (5)
-                if (mazeData[nz][nx] != 1 && mazeData[nz][nx] != 5 && parents[nz][nx].x == -1) {
-                    [cite:13]
-                    parents[nz][nx] = curr; q.push({ nx,nz });
-                }
-            }
-        }
-    }
-    if (found) {
-        Node c = target;
-        while (!(c.x == start.x && c.z == start.z)) {
-            path.push_back(c); c = parents[c.z][c.x];
-        }
-        std::reverse(path.begin(), path.end());
-    }
-    return path; [cite:13]
-}
+const unsigned int SCR_WIDTH = 1280;
+const unsigned int SCR_HEIGHT = 720;
+Camera camera(glm::vec3(1.0f, 0.5f, 1.0f));
 
 int main() {
-    // ... (Inicialización y Carga de Modelos del commit anterior) ...
+    // ... (Inicializaciones y cargas de commits anteriores) ...
 
     while (!glfwWindowShouldClose(window)) {
-        float deltaTime = 0.016f; // Simplificado para el ejemplo
+        float currentFrame = (float)glfwGetTime();
+        float deltaTime = 0.016f;
 
-        // --- LÓGICA DE PERSECUCIÓN (PERSONA 4) ---
-        pathUpdateTimer += deltaTime;
-        if (pathUpdateTimer > 0.2f) { // Actualizar ruta cada 0.2 segundos [cite: 16]
-            Node s = { (int)round(slenderPos.x / 3.0f), (int)round(slenderPos.z / 3.0f) };
-            Node t = { (int)round(camera.Position.x / 3.0f), (int)round(camera.Position.z / 3.0f) };
-            currentPath = findPathBFS(s, t);
-            pathUpdateTimer = 0.0f;
+        // --- LÓGICA DE MUERTE (PERSONA 4) ---
+        // 1. Detección de colisión (distancia < 2.5 unidades)
+        if (!isDyingAnimation && slenderIsVisible && glm::distance(camera.Position, slenderPos) < 2.5f) {
+            isDyingAnimation = true;
+            dyingTimer = 0.0f;
+
+            stopMusic();
+            // Reproducir Jumpscare inmediatamente
+            PlaySound(TEXT("audio/jumpscare.wav"), NULL, SND_FILENAME | SND_ASYNC | SND_NODEFAULT);
         }
 
-        if (!currentPath.empty()) {
-            glm::vec3 dest((float)currentPath[0].x * 3.0f, 0.0f, (float)currentPath[0].z * 3.0f);
-            glm::vec3 dir = glm::normalize(dest - slenderPos);
-            slenderPos += dir * currentSlenderSpeed * deltaTime; [cite:16]
-                if (glm::distance(slenderPos, dest) < 0.2f) currentPath.erase(currentPath.begin());
+        // 2. Animación de Zoom y bloqueo de vista
+        if (isDyingAnimation) {
+            dyingTimer += deltaTime;
+            glm::vec3 headPos = slenderPos + glm::vec3(0.0f, 1.75f, 0.0f); // Objetivo: Ojos de Slender
+            glm::vec3 direction = glm::normalize(headPos - camera.Position);
+
+            // Zoom hacia la cara
+            if (glm::distance(camera.Position, headPos) > 0.8f) {
+                camera.Position += direction * 1.5f * deltaTime;
+            }
+
+            // Forzar rotación de cámara hacia Slender
+            camera.Yaw = glm::degrees(atan2(direction.z, direction.x));
+            camera.Pitch = glm::degrees(asin(direction.y));
+
+            if (dyingTimer > 2.5f) {
+                currentState = GAME_OVER;
+                isDyingAnimation = false;
+            }
         }
 
-        // Renderizado de Slender (con el LookAt del commit anterior)...
-        // ...
-
+        // Renderizado...
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
